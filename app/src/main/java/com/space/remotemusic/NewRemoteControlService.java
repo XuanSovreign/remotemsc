@@ -12,6 +12,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.widget.Toast;
@@ -35,6 +36,7 @@ public class NewRemoteControlService extends Service implements RemoteController
     private long mDuration;
     private long lastTime = 0;
     private ExecutorService singleThreadExecutor;
+    private  MyRunable mMyRunable;
 
     @Override
     public void onCreate() {
@@ -155,11 +157,7 @@ public class NewRemoteControlService extends Service implements RemoteController
         Gson gson = new Gson();
         String json = gson.toJson(messageBean);
         Log.e(TAG, "onClientPlaybackStateUpdate: json2=" + json);
-        long time = System.currentTimeMillis();
-        if (time - lastTime > 1000) {
-            sendJson(json);
-        }
-        lastTime = time;
+        sendJson(json);
     }
 
     @Override
@@ -227,15 +225,23 @@ public class NewRemoteControlService extends Service implements RemoteController
     };
 
     private void sendJson(final String json) {
-
-        Runnable task = new Runnable() {
-            @Override
-            public void run() {
-                TcpNetUtil.sendData(json.getBytes(), mListener);
-            }
-        };
-        singleThreadExecutor.execute(task);
+        if(mMyRunable == null) mMyRunable = new MyRunable();
+        mMyRunable.SetData(json);
+        singleThreadExecutor.execute(mMyRunable);
+        Log.e(TAG, "sendJson: "+json );
     }
 
+    private class MyRunable implements Runnable{
+        public String data;
 
+        public void SetData(String data){
+            this.data = data;
+        }
+
+        @Override
+        public void run() {
+            if(TextUtils.isEmpty(data)) return;
+            TcpNetUtil.sendData(data.getBytes(), mListener);
+        }
+    }
 }
