@@ -11,9 +11,11 @@ import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
 import android.media.RemoteController;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationManagerCompat;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -21,7 +23,12 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.gson.Gson;
+
+import java.util.LinkedList;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 /**
@@ -37,6 +44,13 @@ public class MusicInformationActivity extends Activity implements View.OnClickLi
     private TextView mTvMusicName;
     private RemoteController remoteController;
     private RemoteControlService mRemoteControlService;
+    private Handler mHandler = new Handler();
+    private String mTitle = "";
+    private long mDuration;
+    private long lastTime = 0;
+    private ExecutorService singleThreadExecutor;
+    private MyRunable mMyRunable;
+    private String jsonStr = "";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -56,7 +70,22 @@ public class MusicInformationActivity extends Activity implements View.OnClickLi
     }
 
     private void initData() {
+        singleThreadExecutor = Executors.newSingleThreadExecutor();
+        singleThreadExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                TcpNetUtil.connectTcp("192.168.30.180", 10086);
+            }
+        });
 
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Instrumentation inst = new Instrumentation();
+                inst.sendKeyDownUpSync(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+                inst.sendKeyDownUpSync(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+            }
+        }, 500);
     }
 
     private ServiceConnection mConnection = new ServiceConnection() {
@@ -106,14 +135,40 @@ public class MusicInformationActivity extends Activity implements View.OnClickLi
         @Override
         public void onClientPlaybackStateUpdate(int state) {
 
-            Log.e(TAG, "onClientPlaybackStateUpdate()..."+state);
+            Log.e(TAG, "onClientPlaybackStateUpdate()..." + state);
+
         }
 
         @Override
 
         public void onClientPlaybackStateUpdate(int state, long stateChangeTimeMs, long currentPosMs, float speed) {
 
-            Log.e(TAG, "onClientPlaybackStateUpdate()..."+state+"======"+stateChangeTimeMs+"=========="+currentPosMs+"============"+speed);
+            Log.e(TAG, "onClientPlaybackStateUpdate()..." + state + "======" + stateChangeTimeMs + "==========" + currentPosMs + "============" + speed);
+
+            Log.e(TAG, "onClientPlaybackStateUpdate: state=" + state + "  stateChangeTimeMs=" + stateChangeTimeMs + "  currentPosMs=" + currentPosMs + " speed=" + speed);
+            MessageBean messageBean = new MessageBean();
+            messageBean.setTitle(mTitle);
+            messageBean.setDuration(mDuration);
+            messageBean.setState(state);
+            messageBean.setCurrentPosition(currentPosMs);
+            Gson gson = new Gson();
+            String json = gson.toJson(messageBean);
+            json += "\n";
+            if (jsonStr.equals(json)) {
+                return;
+            }
+            Log.e(TAG, "onClientPlaybackStateUpdate: json2=" + json);
+
+//        final String finalJson = json;
+//        mHandler.postDelayed(new Runnable() {
+//            @Override
+//            public void run() {
+//                sendJson(finalJson);
+//                mHandler.postDelayed(this,100);
+//            }
+//        },100);
+            sendJson(json);
+            jsonStr = json;
         }
 
         @Override
@@ -165,6 +220,9 @@ public class MusicInformationActivity extends Activity implements View.OnClickLi
                     + "title:" + title
 
                     + "duration:" + duration);
+
+            mTitle = title;
+            mDuration = duration;
         }
 
     };
@@ -186,7 +244,6 @@ public class MusicInformationActivity extends Activity implements View.OnClickLi
         }
 
     }
-
 
 
     @Override
@@ -221,5 +278,38 @@ public class MusicInformationActivity extends Activity implements View.OnClickLi
             return true;
         }
         return false;
+    }
+
+    TcpNetUtil.SendDataListener mListener = new TcpNetUtil.SendDataListener() {
+        @Override
+        public void sendSuccess(byte[] bytes) {
+
+        }
+
+        @Override
+        public void sendFail(byte[] bytes) {
+            TcpNetUtil.sendData(bytes, mListener);
+        }
+    };
+
+    private void sendJson(final String json) {
+        if (mMyRunable == null) mMyRunable = new MyRunable();
+        mMyRunable.SetData(json);
+        singleThreadExecutor.execute(mMyRunable);
+        Log.e(TAG, "sendJson: " + json);
+    }
+
+    private class MyRunable implements Runnable {
+        public String data;
+
+        public void SetData(String data) {
+            this.data = data;
+        }
+
+        @Override
+        public void run() {
+            if (TextUtils.isEmpty(data)) return;
+            TcpNetUtil.sendData(data.getBytes(), mListener);
+        }
     }
 }

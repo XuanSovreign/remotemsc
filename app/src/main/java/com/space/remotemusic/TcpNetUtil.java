@@ -70,33 +70,38 @@ public class TcpNetUtil {
 
 
     public static void sendData(byte[] bytes, SendDataListener listener) {
-        byte[] buff = null;
+//        byte[] buff = null;
         if (sSocket == null) {
             connectTcp(sIp, sPort);
         }
-        buff = new byte[4 + bytes.length];
-        int headbyte = bytes.length;
-        byte[] int2Bytes = int2Bytes(headbyte);
-        System.arraycopy(int2Bytes, 0, buff, 0, int2Bytes.length);
-        System.arraycopy(bytes, 0, buff, int2Bytes.length, bytes.length);
+//        buff = new byte[4 + bytes.length];
+//        int headbyte = bytes.length;
+//        byte[] int2Bytes = int2Bytes(headbyte);
+//        System.arraycopy(int2Bytes, 0, buff, 0, int2Bytes.length);
+//        System.arraycopy(bytes, 0, buff, int2Bytes.length, bytes.length);
         try {
-            if (isServerClose()) {
-                closeSocket();
-                listener.sendFail(buff);
-            }
             if (sOutputStream == null) {
                 sOutputStream = sSocket.getOutputStream();
             }
 
-            Log.e(TAG, "sendData: " + new String(buff, 0, buff.length));
+//            Log.e(TAG, "sendData: " + new String(buff, 0, buff.length));
+            Log.e(TAG, "sendData: " + new String(bytes));
 
-            sOutputStream.write(buff);
+//            sOutputStream.write(buff);
+            sOutputStream.write(bytes);
             sOutputStream.flush();
-            listener.sendSuccess(buff);
+//            listener.sendSuccess(buff);
+            listener.sendSuccess(bytes);
         } catch (IOException e) {
             e.printStackTrace();
             closeSocket();
-            listener.sendFail(buff);
+//            listener.sendFail(buff);
+            listener.sendFail(bytes);
+        } catch (NullPointerException ne) {
+            ne.printStackTrace();
+            closeSocket();
+//            listener.sendFail(buff);
+            listener.sendFail(bytes);
         }
     }
 

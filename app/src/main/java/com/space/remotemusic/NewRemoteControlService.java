@@ -1,5 +1,6 @@
 package com.space.remotemusic;
 
+import android.app.Notification;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -12,6 +13,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
+import android.support.v4.app.NotificationCompat;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -51,7 +53,13 @@ public class NewRemoteControlService extends Service implements RemoteController
                 TcpNetUtil.connectTcp(mAddress, 10086);
             }
         });
-
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                sendJson("0\n");
+                mHandler.postDelayed(this,1000);
+            }
+        },1000);
     }
 
 
@@ -63,6 +71,14 @@ public class NewRemoteControlService extends Service implements RemoteController
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
+        NotificationCompat.Builder mBuilder=new NotificationCompat.Builder(this);
+        mBuilder.setSmallIcon(R.drawable.ic_launcher_background);
+        mBuilder.setContentTitle("music");
+        mBuilder.setContentText("playing music !");
+        Notification notification=mBuilder.build();
+        startForeground(startId, notification);
+
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -156,6 +172,7 @@ public class NewRemoteControlService extends Service implements RemoteController
         messageBean.setCurrentPosition(currentPosMs);
         Gson gson = new Gson();
         String json = gson.toJson(messageBean);
+        json+="\n";
         Log.e(TAG, "onClientPlaybackStateUpdate: json2=" + json);
         sendJson(json);
     }
@@ -243,5 +260,11 @@ public class NewRemoteControlService extends Service implements RemoteController
             if(TextUtils.isEmpty(data)) return;
             TcpNetUtil.sendData(data.getBytes(), mListener);
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        stopForeground(true);
+        super.onDestroy();
     }
 }
