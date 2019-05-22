@@ -45,6 +45,9 @@ public class NewRemoteControlService extends Service implements RemoteController
         registerRemoteController();
         SharedPreferences sp = getSharedPreferences("remote_data", MODE_PRIVATE);
         mAddress = sp.getString("ip_address", "");
+        if (TextUtils.isEmpty(mAddress)) {
+            stopSelf();
+        }
         Log.e(TAG, "onCreate: " + mAddress);
         singleThreadExecutor = Executors.newSingleThreadExecutor();
         singleThreadExecutor.execute(new Runnable() {

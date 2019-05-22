@@ -97,11 +97,6 @@ public class TcpNetUtil {
             closeSocket();
 //            listener.sendFail(buff);
             listener.sendFail(bytes);
-        } catch (NullPointerException ne) {
-            ne.printStackTrace();
-            closeSocket();
-//            listener.sendFail(buff);
-            listener.sendFail(bytes);
         }
     }
 
